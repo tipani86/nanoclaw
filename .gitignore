@@ -18,6 +18,9 @@ groups/global/*
 !groups/main/CLAUDE.md
 !groups/global/CLAUDE.md
 
+# AgentNet daemon state (keys, tokens, binary, logs)
+.agentnet/
+
 # Secrets
 *.keys.json
 .env

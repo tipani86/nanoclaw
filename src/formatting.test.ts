@@ -185,6 +185,18 @@ describe('stripInternalTags', () => {
   it('returns empty string when text is only internal tags', () => {
     expect(stripInternalTags('<internal>only this</internal>')).toBe('');
   });
+
+  it('strips thinking tags', () => {
+    expect(stripInternalTags('hello <thinking>reasoning</thinking> world')).toBe(
+      'hello  world',
+    );
+  });
+
+  it('strips mixed internal and thinking tags', () => {
+    expect(
+      stripInternalTags('<thinking>a</thinking>hello<internal>b</internal>'),
+    ).toBe('hello');
+  });
 });
 
 describe('formatOutbound', () => {

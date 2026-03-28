@@ -1,9 +1,12 @@
 import fs from 'fs';
 import path from 'path';
 
+import { execFile, execFileSync } from 'child_process';
+
 import {
   ASSISTANT_NAME,
   CREDENTIAL_PROXY_PORT,
+  GROUPS_DIR,
   IDLE_TIMEOUT,
   POLL_INTERVAL,
   TIMEZONE,
@@ -214,8 +217,8 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
         typeof result.result === 'string'
           ? result.result
           : JSON.stringify(result.result);
-      // Strip <internal>...</internal> blocks — agent uses these for internal reasoning
-      const text = raw.replace(/<internal>[\s\S]*?<\/internal>/g, '').trim();
+      // Strip <internal>/<thinking> blocks — agent uses these for internal reasoning
+      const text = raw.replace(/<(internal|thinking)>[\s\S]*?<\/(internal|thinking)>/g, '').trim();
       logger.info({ group: group.name }, `Agent output: ${raw.slice(0, 200)}`);
       if (text) {
         await channel.sendMessage(chatJid, text);
@@ -467,6 +470,48 @@ function ensureContainerSystemRunning(): void {
 
 async function main(): Promise<void> {
   ensureContainerSystemRunning();
+
+  // Start AgentNet host daemon (persists across container restarts)
+  const projectRoot = path.resolve(GROUPS_DIR, '..');
+  const agentnetScript = path.resolve(projectRoot, 'start-agentnet-daemon.sh');
+  const agentnetPidFile = path.resolve(projectRoot, '.agentnet/daemon.pid');
+  let agentnetHealthInterval: ReturnType<typeof setInterval> | undefined;
+
+  function startAgentNetDaemon(): void {
+    if (!fs.existsSync(agentnetScript)) return;
+    execFile('bash', [agentnetScript], (err, stdout) => {
+      if (err) logger.warn({ err }, 'AgentNet daemon startup failed');
+      else logger.info({ stdout: stdout.trim() }, 'AgentNet daemon started');
+    });
+  }
+
+  function isAgentNetAlive(): boolean {
+    if (!fs.existsSync(agentnetPidFile)) return false;
+    const pid = parseInt(fs.readFileSync(agentnetPidFile, 'utf8').trim(), 10);
+    if (isNaN(pid)) return false;
+    try { process.kill(pid, 0); return true; } catch { return false; }
+  }
+
+  function stopAgentNetDaemon(): void {
+    if (!fs.existsSync(agentnetPidFile)) return;
+    const pid = parseInt(fs.readFileSync(agentnetPidFile, 'utf8').trim(), 10);
+    if (!isNaN(pid)) {
+      try { process.kill(pid, 'SIGTERM'); } catch { /* already dead */ }
+    }
+  }
+
+  startAgentNetDaemon();
+
+  // Health check: restart daemon if it dies (every 30s)
+  if (fs.existsSync(agentnetScript)) {
+    agentnetHealthInterval = setInterval(() => {
+      if (!isAgentNetAlive()) {
+        logger.warn('AgentNet daemon not running, restarting...');
+        startAgentNetDaemon();
+      }
+    }, 30_000);
+  }
+
   initDatabase();
   logger.info('Database initialized');
   loadState();
@@ -480,6 +525,8 @@ async function main(): Promise<void> {
   // Graceful shutdown handlers
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'Shutdown signal received');
+    if (agentnetHealthInterval) clearInterval(agentnetHealthInterval);
+    stopAgentNetDaemon();
     proxyServer.close();
     await queue.shutdown(10000);
     for (const ch of channels) await ch.disconnect();

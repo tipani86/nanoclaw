@@ -25,23 +25,33 @@ export interface FeishuChannelOpts {
  * Parse Feishu message content JSON to plain text.
  * Feishu delivers message bodies as JSON strings whose structure varies by msg_type.
  */
-export function parseFeishuMessageContent(rawContent: string, msgType: string): string {
+export function parseFeishuMessageContent(
+  rawContent: string,
+  msgType: string,
+): string {
   try {
     const parsed = JSON.parse(rawContent);
     if (msgType === 'text') {
       return parsed.text || '';
     }
     if (msgType === 'post') {
-      logger.debug({ rawContent: rawContent.slice(0, 500), parsedKeys: Object.keys(parsed) }, 'Feishu: post raw content');
+      logger.debug(
+        {
+          rawContent: rawContent.slice(0, 500),
+          parsedKeys: Object.keys(parsed),
+        },
+        'Feishu: post raw content',
+      );
       // Rich text — extract text from all paragraph elements.
       // Feishu wraps post content in a locale key (zh_cn, en_us, ja_jp, etc.)
       // or sometimes delivers it flat with a top-level "content" array.
       let title = '';
-      let paragraphs: Array<Array<{ tag: string; text?: string; href?: string }>> | undefined;
+      let paragraphs:
+        | Array<Array<{ tag: string; text?: string; href?: string }>>
+        | undefined;
 
       // Try locale-keyed structure: { "zh_cn": { "title": "...", "content": [[...]] } }
-      const langObj =
-        parsed.zh_cn || parsed.en_us || parsed.ja_jp;
+      const langObj = parsed.zh_cn || parsed.en_us || parsed.ja_jp;
       if (langObj && typeof langObj === 'object' && 'content' in langObj) {
         title = langObj.title || '';
         paragraphs = langObj.content;
@@ -52,7 +62,12 @@ export function parseFeishuMessageContent(rawContent: string, msgType: string): 
       } else {
         // Last resort: try first object value that has a content array
         for (const val of Object.values(parsed)) {
-          if (val && typeof val === 'object' && 'content' in (val as any) && Array.isArray((val as any).content)) {
+          if (
+            val &&
+            typeof val === 'object' &&
+            'content' in (val as any) &&
+            Array.isArray((val as any).content)
+          ) {
             title = (val as any).title || '';
             paragraphs = (val as any).content;
             break;
@@ -68,8 +83,10 @@ export function parseFeishuMessageContent(rawContent: string, msgType: string): 
               .map((el) => {
                 if (el.tag === 'text') return el.text || '';
                 if (el.tag === 'a') return el.text || el.href || '';
-                if (el.tag === 'at') return `@${(el as any).user_name || (el as any).user_id || ''}`;
-                if (el.tag === 'img') return `[Image: ${(el as any).image_key || 'unknown'}]`;
+                if (el.tag === 'at')
+                  return `@${(el as any).user_name || (el as any).user_id || ''}`;
+                if (el.tag === 'img')
+                  return `[Image: ${(el as any).image_key || 'unknown'}]`;
                 if (el.tag === 'file') {
                   const fk = (el as any).file_key || '';
                   const fn = (el as any).file_name || 'unknown';
@@ -86,7 +103,10 @@ export function parseFeishuMessageContent(rawContent: string, msgType: string): 
       }
 
       // If we still couldn't extract anything, log the structure for debugging
-      logger.debug({ rawContent, msgType }, 'Feishu: could not parse post content');
+      logger.debug(
+        { rawContent, msgType },
+        'Feishu: could not parse post content',
+      );
     }
     if (msgType === 'image') return '[Image]';
     if (msgType === 'audio') return '[Audio]';
@@ -198,7 +218,11 @@ export class FeishuChannel implements Channel {
     if (!message) return;
 
     logger.debug(
-      { msgType: message.message_type, chatId: message.chat_id, messageId: message.message_id },
+      {
+        msgType: message.message_type,
+        chatId: message.chat_id,
+        messageId: message.message_id,
+      },
       'Feishu: incoming event',
     );
 
@@ -224,7 +248,8 @@ export class FeishuChannel implements Channel {
     let content = parseFeishuMessageContent(message.content || '{}', msgType);
 
     // Handle @bot mentions: strip the mention tag and prepend trigger word
-    const mentions: Array<{ id?: { open_id?: string } }> = message.mentions || [];
+    const mentions: Array<{ id?: { open_id?: string } }> =
+      message.mentions || [];
     const botMentioned =
       this.botOpenId !== undefined &&
       mentions.some((m) => m.id?.open_id === this.botOpenId);
@@ -243,7 +268,10 @@ export class FeishuChannel implements Channel {
     // Only deliver full messages for registered chats
     const group = this.opts.registeredGroups()[chatJid];
     if (!group) {
-      logger.debug({ chatJid, chatType }, 'Feishu: message from unregistered chat');
+      logger.debug(
+        { chatJid, chatType },
+        'Feishu: message from unregistered chat',
+      );
       return;
     }
 
@@ -259,12 +287,18 @@ export class FeishuChannel implements Channel {
           const imageKey: string | undefined = parsed.image_key;
           if (imageKey) {
             const result = await this.downloadAndProcessImage(
-              messageId, imageKey, groupDir, content !== '[Image]' ? content : '',
+              messageId,
+              imageKey,
+              groupDir,
+              content !== '[Image]' ? content : '',
             );
             if (result) content = result.content;
           }
         } catch (err) {
-          logger.warn({ err, chatJid, messageId }, 'Feishu: image download/processing failed');
+          logger.warn(
+            { err, chatJid, messageId },
+            'Feishu: image download/processing failed',
+          );
         }
       } else if (msgType === 'file') {
         // File message — check if it's a PDF and download it
@@ -274,12 +308,18 @@ export class FeishuChannel implements Channel {
           const fileName: string = parsed.file_name || `doc-${Date.now()}.pdf`;
           if (fileKey && fileName.toLowerCase().endsWith('.pdf')) {
             const result = await this.downloadAndSavePdf(
-              messageId, fileKey, groupDir, fileName,
+              messageId,
+              fileKey,
+              groupDir,
+              fileName,
             );
             if (result) content = result;
           }
         } catch (err) {
-          logger.warn({ err, chatJid, messageId }, 'Feishu: PDF download failed');
+          logger.warn(
+            { err, chatJid, messageId },
+            'Feishu: PDF download failed',
+          );
         }
       } else if (msgType === 'post') {
         const replacements: Array<{ placeholder: string; result: string }> = [];
@@ -290,13 +330,22 @@ export class FeishuChannel implements Channel {
         while ((imgMatch = imageKeyPattern.exec(content)) !== null) {
           try {
             const result = await this.downloadAndProcessImage(
-              messageId, imgMatch[1], groupDir, '',
+              messageId,
+              imgMatch[1],
+              groupDir,
+              '',
             );
             if (result) {
-              replacements.push({ placeholder: imgMatch[0], result: result.content });
+              replacements.push({
+                placeholder: imgMatch[0],
+                result: result.content,
+              });
             }
           } catch (err) {
-            logger.warn({ err, chatJid, imageKey: imgMatch[1] }, 'Feishu: post image download failed');
+            logger.warn(
+              { err, chatJid, imageKey: imgMatch[1] },
+              'Feishu: post image download failed',
+            );
           }
         }
 
@@ -308,13 +357,19 @@ export class FeishuChannel implements Channel {
           if (!fileName.toLowerCase().endsWith('.pdf')) continue;
           try {
             const result = await this.downloadAndSavePdf(
-              messageId, fileKey, groupDir, fileName,
+              messageId,
+              fileKey,
+              groupDir,
+              fileName,
             );
             if (result) {
               replacements.push({ placeholder, result });
             }
           } catch (err) {
-            logger.warn({ err, chatJid, fileKey }, 'Feishu: post PDF download failed');
+            logger.warn(
+              { err, chatJid, fileKey },
+              'Feishu: post PDF download failed',
+            );
           }
         }
 
@@ -428,7 +483,10 @@ export class FeishuChannel implements Channel {
     const filePath = path.join(attachDir, safeFileName);
     fs.writeFileSync(filePath, buffer);
     const sizeKB = Math.round(buffer.length / 1024);
-    logger.info({ messageId, fileName: safeFileName, sizeKB }, 'Feishu: downloaded PDF attachment');
+    logger.info(
+      { messageId, fileName: safeFileName, sizeKB },
+      'Feishu: downloaded PDF attachment',
+    );
     return `[PDF: attachments/${safeFileName} (${sizeKB}KB)]\nUse: pdf-reader extract attachments/${safeFileName}`;
   }
 

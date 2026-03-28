@@ -218,7 +218,9 @@ async function processGroupMessages(chatJid: string): Promise<boolean> {
           ? result.result
           : JSON.stringify(result.result);
       // Strip <internal>/<thinking> blocks — agent uses these for internal reasoning
-      const text = raw.replace(/<(internal|thinking)>[\s\S]*?<\/(internal|thinking)>/g, '').trim();
+      const text = raw
+        .replace(/<(internal|thinking)>[\s\S]*?<\/(internal|thinking)>/g, '')
+        .trim();
       logger.info({ group: group.name }, `Agent output: ${raw.slice(0, 200)}`);
       if (text) {
         await channel.sendMessage(chatJid, text);
@@ -489,14 +491,23 @@ async function main(): Promise<void> {
     if (!fs.existsSync(agentnetPidFile)) return false;
     const pid = parseInt(fs.readFileSync(agentnetPidFile, 'utf8').trim(), 10);
     if (isNaN(pid)) return false;
-    try { process.kill(pid, 0); return true; } catch { return false; }
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function stopAgentNetDaemon(): void {
     if (!fs.existsSync(agentnetPidFile)) return;
     const pid = parseInt(fs.readFileSync(agentnetPidFile, 'utf8').trim(), 10);
     if (!isNaN(pid)) {
-      try { process.kill(pid, 'SIGTERM'); } catch { /* already dead */ }
+      try {
+        process.kill(pid, 'SIGTERM');
+      } catch {
+        /* already dead */
+      }
     }
   }
 

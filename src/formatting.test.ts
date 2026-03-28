@@ -187,9 +187,9 @@ describe('stripInternalTags', () => {
   });
 
   it('strips thinking tags', () => {
-    expect(stripInternalTags('hello <thinking>reasoning</thinking> world')).toBe(
-      'hello  world',
-    );
+    expect(
+      stripInternalTags('hello <thinking>reasoning</thinking> world'),
+    ).toBe('hello  world');
   });
 
   it('strips mixed internal and thinking tags', () => {

@@ -32,7 +32,9 @@ const baileysLogger = {
   level: 'silent' as string,
   trace: (dataOrMsg: unknown, msg?: string) =>
     logger.debug(
-      typeof dataOrMsg === 'string' ? dataOrMsg : (dataOrMsg as Record<string, unknown>),
+      typeof dataOrMsg === 'string'
+        ? dataOrMsg
+        : (dataOrMsg as Record<string, unknown>),
       msg,
     ),
   debug: logger.debug,

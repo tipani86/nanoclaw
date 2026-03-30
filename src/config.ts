@@ -85,13 +85,11 @@ export const TRIGGER_PATTERN = buildTriggerPattern(DEFAULT_TRIGGER);
 
 // Model selection: env > .env > defaults
 export const CLAUDE_MODEL =
-  process.env.CLAUDE_MODEL ||
-  envConfig.CLAUDE_MODEL ||
-  'claude-sonnet-4-6';
+  process.env.CLAUDE_MODEL || envConfig.CLAUDE_MODEL || 'claude-haiku-4-5';
 export const CLAUDE_FALLBACK_MODEL =
   process.env.CLAUDE_FALLBACK_MODEL ||
   envConfig.CLAUDE_FALLBACK_MODEL ||
-  'claude-haiku-4-5';
+  'claude-sonnet-4-6';
 
 // Timezone for scheduled tasks, message formatting, etc.
 // Validates each candidate is a real IANA identifier before accepting.

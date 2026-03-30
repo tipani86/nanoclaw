@@ -234,6 +234,30 @@ function createSanitizeBashHook(): HookCallback {
   };
 }
 
+// Blocks `agentnet send <room> <message>` calls where the message argument is
+// empty or whitespace-only. These are produced when the model errors mid-reply
+// (e.g. usage limit) and would post a blank message to the room.
+function createBlockEmptyAgentnetSendHook(): HookCallback {
+  return async (input, _toolUseId, _context) => {
+    const preInput = input as PreToolUseHookInput;
+    const command = (preInput.tool_input as { command?: string })?.command ?? '';
+    // Match: agentnet send <room> <message> — the message is the last shell token
+    const match = command.match(/agentnet\s+send\s+\S+\s+(.*)/s);
+    if (!match) return {};
+    const message = match[1].trim().replace(/^["']|["']$/g, '').trim();
+    if (message.length === 0) {
+      return {
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          decision: 'block',
+          reason: 'agentnet send blocked: message content is empty. Do not send empty messages to rooms.',
+        },
+      };
+    }
+    return {};
+  };
+}
+
 function sanitizeFilename(summary: string): string {
   return summary
     .toLowerCase()
@@ -495,7 +519,7 @@ async function runQuery(
       },
       hooks: {
         PreCompact: [{ hooks: [createPreCompactHook(containerInput.assistantName)] }],
-        PreToolUse: [{ matcher: 'Bash', hooks: [createSanitizeBashHook()] }],
+        PreToolUse: [{ matcher: 'Bash', hooks: [createSanitizeBashHook(), createBlockEmptyAgentnetSendHook()] }],
       },
     }
   })) {

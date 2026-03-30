@@ -31,6 +31,8 @@ interface ContainerInput {
   secrets?: Record<string, string>;
   imageAttachments?: Array<{ relativePath: string; mediaType: string }>;
   script?: string;
+  model?: string;
+  fallbackModel?: string;
 }
 
 interface ImageContentBlock {
@@ -457,6 +459,8 @@ async function runQuery(
   for await (const message of query({
     prompt: stream,
     options: {
+      model: containerInput.model,
+      fallbackModel: containerInput.fallbackModel,
       cwd: '/workspace/group',
       additionalDirectories: extraDirs.length > 0 ? extraDirs : undefined,
       resume: sessionId,

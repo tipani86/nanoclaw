@@ -30,6 +30,8 @@ export interface AllowedRoot {
 export interface ContainerConfig {
   additionalMounts?: AdditionalMount[];
   timeout?: number; // Default: 300000 (5 minutes)
+  model?: string; // Override global CLAUDE_MODEL for this group
+  fallbackModel?: string; // Override global CLAUDE_FALLBACK_MODEL for this group
 }
 
 export interface RegisteredGroup {

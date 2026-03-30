@@ -43,6 +43,8 @@ export interface ContainerInput {
   isScheduledTask?: boolean;
   assistantName?: string;
   script?: string;
+  model?: string;
+  fallbackModel?: string;
 }
 
 export interface ContainerOutput {

@@ -243,6 +243,9 @@ async function buildContainerArgs(
   });
   if (onecliApplied) {
     logger.info({ containerName }, 'OneCLI gateway config applied');
+    // Exclude host gateway from proxy so internal services (e.g. AgentNet daemon
+    // on port 9900) are reached directly rather than routed through OneCLI.
+    args.push('-e', 'NO_PROXY=host.docker.internal');
   } else {
     logger.warn(
       { containerName },
